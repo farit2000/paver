@@ -1,0 +1,6 @@
+package: nvim
+deps:
+  - git
+scripts:
+  - install.sh
+  - configure.sh

@@ -1,0 +1,3 @@
+package: git
+scripts:
+  - install.sh
