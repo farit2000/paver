@@ -6,8 +6,9 @@ import (
 	"path"
 	"sync"
 
-	"github.com/farit2000/paver/internal/pkg/graph"
 	"gopkg.in/yaml.v3"
+
+	"github.com/farit2000/paver/internal/pkg/graph"
 )
 
 const manifestFileName = "manifest.yaml"
@@ -25,7 +26,7 @@ func NewPaver(packageDirPath string) paver {
 	}
 }
 
-func (p paver) Run() error {
+func (p paver) Run(workersNum int) error {
 	packages, edges, err := p.dirWalker()
 	if err != nil {
 		return err
@@ -35,10 +36,9 @@ func (p paver) Run() error {
 		return fmt.Errorf("graph validation failed: %v", err)
 	}
 
-	pool := NewWorkersPool(2)
+	pool := NewWorkersPool(workersNum)
 	resultChan := make(chan TaskResult)
 	stopChan := make(chan struct{})
-
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -46,7 +46,7 @@ func (p paver) Run() error {
 		for result := range resultChan {
 			if result.Error != nil {
 				fmt.Printf("Error run script: %s, output: %s, err: %v", result.ID, result.Value, result.Error)
-				stopChan <- struct{}{}
+				close(stopChan)
 				return
 			}
 			fmt.Printf("Task %s completed with result: %s\n", result.ID, result.Value)
@@ -55,30 +55,30 @@ func (p paver) Run() error {
 	}()
 	go func() {
 		defer wg.Done()
-	loop:
 		for {
 			select {
 			case <-stopChan:
-				break loop
+				pool.Shutdown()
+				close(resultChan)
+				return
 			default:
-				task, isLast := p.graph.GetPendingNode()
-				if task == nil {
-					continue
-				}
-				pool.Submit(Task{
-					ID:       task.GetID(),
-					TaskFunc: task.Run,
-				}, resultChan)
-				if isLast {
-					break loop
-				}
 			}
-
+			task, isLast := p.graph.GetPendingNode()
+			if task == nil {
+				continue
+			}
+			err := pool.Submit(Task{
+				ID:       task.GetID(),
+				TaskFunc: task.Run,
+			}, resultChan)
+			if err != nil {
+				panic(err)
+			}
+			if isLast {
+				close(stopChan)
+			}
 		}
-		pool.Shutdown()
-		close(resultChan)
 	}()
-
 	wg.Wait()
 
 	return nil

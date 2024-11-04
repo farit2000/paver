@@ -1,6 +1,7 @@
 package: nvim
 deps:
   - git
+  - homebrew
 scripts:
   - install.sh
   - configure.sh

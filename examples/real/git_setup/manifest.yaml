@@ -1,0 +1,4 @@
+package: git
+scripts:
+  - configure.sh
+  - install.sh

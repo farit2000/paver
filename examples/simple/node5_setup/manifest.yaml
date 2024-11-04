@@ -1,0 +1,5 @@
+package: node5
+deps:
+  - node3
+scripts:
+  - install.sh

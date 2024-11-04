@@ -1,0 +1,5 @@
+package: node6
+deps:
+  - node4
+scripts:
+  - install.sh

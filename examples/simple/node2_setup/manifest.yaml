@@ -1,0 +1,3 @@
+package: node2
+scripts:
+  - install.sh

@@ -1,0 +1,5 @@
+package: node8
+deps:
+  - node5
+scripts:
+  - install.sh

@@ -1,21 +1,28 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"os"
+	"time"
 
 	"github.com/farit2000/paver/internal/pkg/app/paver"
 )
 
 func main() {
-	args := os.Args
-	if len(args) != 2 {
-		panic(fmt.Sprintf("input shoud be in format ./program <path to dir with packages>, but has %v", args))
+	workersNum := flag.Int("workers", 2, "an int")
+	workDir := flag.String("workdir", "./", "a string")
+	if *workersNum <= 0 {
+		panic(fmt.Sprintf("workers shoud be more that zero, but: %d", *workersNum))
 	}
+	flag.Parse()
 
-	pv := paver.NewPaver(args[1])
+	pv := paver.NewPaver(*workDir)
 
-	err := pv.Run()
+	now := time.Now()
+	defer func() {
+		fmt.Println("Elapsed time:", time.Since(now))
+	}()
+	err := pv.Run(*workersNum)
 	if err != nil {
 		panic(fmt.Sprintf("error while configure workspace: %v", err))
 	}

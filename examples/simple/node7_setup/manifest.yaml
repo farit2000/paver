@@ -1,0 +1,6 @@
+package: node7
+deps:
+  - node4
+  - node5
+scripts:
+  - install.sh

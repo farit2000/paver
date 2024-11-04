@@ -1,6 +1,10 @@
 package paver
 
-import "sync"
+import (
+	"errors"
+	"sync"
+	"sync/atomic"
+)
 
 type Task struct {
 	ID       string
@@ -33,7 +37,7 @@ func NewWorker(id int, pool chan func()) *Worker {
 			case task := <-worker.task:
 				task()
 			case <-worker.stop:
-				worker.stopped <- true
+				close(worker.stopped)
 				return
 			}
 		}
@@ -43,14 +47,15 @@ func NewWorker(id int, pool chan func()) *Worker {
 }
 
 func (w *Worker) Stop() {
-	w.stop <- true
+	close(w.stop)
 	<-w.stopped
 }
 
 type WorkersPool struct {
-	workerQueue chan func()
-	workers     []*Worker
-	wg          sync.WaitGroup
+	workerQueue    chan func()
+	workers        []*Worker
+	wg             sync.WaitGroup
+	shutdownInited atomic.Bool
 }
 
 func NewWorkersPool(numWorkers int) *WorkersPool {
@@ -66,7 +71,10 @@ func NewWorkersPool(numWorkers int) *WorkersPool {
 	return pool
 }
 
-func (p *WorkersPool) Submit(task Task, resultChan chan<- TaskResult) {
+func (p *WorkersPool) Submit(task Task, resultChan chan<- TaskResult) error {
+	if p.shutdownInited.Load() {
+		return errors.New("try to submit task to stopped pool")
+	}
 	p.wg.Add(1)
 	taskWrapper := func() {
 		defer p.wg.Done()
@@ -78,12 +86,15 @@ func (p *WorkersPool) Submit(task Task, resultChan chan<- TaskResult) {
 		}
 	}
 	p.workerQueue <- taskWrapper
+
+	return nil
 }
 
 func (p *WorkersPool) Shutdown() {
+	p.shutdownInited.Store(true)
+	p.wg.Wait()
 	for _, worker := range p.workers {
 		worker.Stop()
 	}
-	p.wg.Wait()
 	close(p.workerQueue)
 }

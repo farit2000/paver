@@ -1,0 +1,3 @@
+package: homebrew
+scripts:
+  - install.sh
